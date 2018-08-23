@@ -49,4 +49,6 @@ pip install -r requirements.txt
 
 # 動作させる
 
-TODO
+```commandline
+python scraping_open_close.py
+```
