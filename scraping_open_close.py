@@ -1,7 +1,6 @@
 from pyquery import PyQuery as pq
 from logging import getLogger, DEBUG, INFO, StreamHandler
 from urllib.parse import urlencode
-from csv_writer import write_to_csv
 import time
 import re
 
@@ -16,28 +15,35 @@ list_url = 'http://kaiten-heiten.com/category/restaurant/'
 
 def parse_service():
     """
-    各一覧ページ(1ページ目, 2ページ目, ...)ごとにparse_list_pageでデータを取得する
+    各一覧ページ(1ページ目, 2ページ目, ...)ごとにparse_list_pageでデータを取得し
+    ページが完了する度にcsvへの追記を行う
     :return: お店データのリスト
     """
     query_string = urlencode({'s': '【開店】'})
     base_page_url = list_url + 'page/%d/?'
     index = 1
-    restaurant_list = []
 
-    while True:
-        logger.info('scraping page: %d' % index)
-        next_url = (base_page_url % index) + query_string
-        page_restaurant_list = parse_list_page(next_url)
-        restaurant_list += page_restaurant_list
-        index += 1
+    with open('column_list.csv') as f:
+        column_list = [row.strip() for row in f]
 
-        time.sleep(1)
+    with open('attack_list.csv', 'w') as f:
+        f.write(','.join(column_list) + '\n')
 
-        # parse_list_pageがレストランを返さない = 終端に達したら抜ける
-        if len(page_restaurant_list) == 0:
-            break
+        while True:
+            logger.info('scraping page: %d' % index)
+            next_url = (base_page_url % index) + query_string
+            page_restaurant_list = parse_list_page(next_url)
+            index += 1
+            time.sleep(1)
 
-    return restaurant_list
+            # parse_list_pageがレストランを返さない = 終端に達したら抜ける
+            if len(page_restaurant_list) == 0:
+                break
+
+            for restaurant in page_restaurant_list:
+                row = [restaurant.get(col, '') for col in column_list]
+                f.write(','.join(row).replace('\n', ' ') + '\n')
+                f.flush()
 
 
 def parse_list_page(list_page_url: str):
@@ -165,5 +171,4 @@ def get_update_date(attr_dom: pq):
 
 
 if __name__ == '__main__':
-    restaurant_list = parse_service()
-    write_to_csv(restaurant_list)
+    parse_service()
