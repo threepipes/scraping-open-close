@@ -96,9 +96,9 @@ def parse_restaurant_page(restaurant_url: str):
 
 def get_table_data(table_dom: pq):
     """
-
-    :param table_dom:
-    :return:
+    お店の情報表からデータを取得する
+    :param table_dom: 表
+    :return: 表の内容のdict
     """
     table_data = {}
     for row in table_dom.find('tr'):
@@ -107,6 +107,7 @@ def get_table_data(table_dom: pq):
         for col in row_dom.find('td'):
             col_dom = pq(col)
             inner_link = col_dom.find('a')
+            # お店URLの場合だけ、hrefから取得するので場合分け
             if inner_link and 'tel:' not in inner_link.attr('href'):
                 row_data.append(inner_link.attr('href'))
             else:
@@ -114,12 +115,14 @@ def get_table_data(table_dom: pq):
         if len(row_data) != 2:
             logger.debug('wrong num on table row: ' + str(row_dom))
             continue
+        # 住所の場合は郵便番号を切り出す
         if row_data[0] == '住所':
             postal_code_match = re.search(r'〒\d{3}-\d{4}', row_data[1])
             if postal_code_match:
                 postal_code = postal_code_match.group()
                 table_data['郵便番号'] = postal_code
                 row_data[1] = row_data[1].replace(postal_code, '')
+
         table_data[row_data[0]] = row_data[1]
     return table_data
 
@@ -127,6 +130,7 @@ def get_table_data(table_dom: pq):
 def get_open_date(title_dom: pq):
     """
     お店の開店日を取得する
+    現在は X年X月X日 の形式で書かれている場合のみ取得可能
     :param title_dom: 開店日を含むタイトル
     :return: 開店日
     """
