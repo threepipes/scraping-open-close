@@ -1,13 +1,14 @@
 from pyquery import PyQuery as pq
-from logging import getLogger, DEBUG, StreamHandler
+from logging import getLogger, DEBUG, INFO, StreamHandler
 from urllib.parse import urlencode
+from csv_writer import write_to_csv
 import time
 import re
 
 # ログ出力用: 今回程度の用途ならprintでもよい
 logger = getLogger(__file__)
 logger.addHandler(StreamHandler())
-logger.setLevel(DEBUG)
+logger.setLevel(INFO)
 
 # 飲食店の一覧
 list_url = 'http://kaiten-heiten.com/category/restaurant/'
@@ -24,9 +25,10 @@ def parse_service():
     restaurant_list = []
 
     while True:
-        logger.debug('scraping page: %d' % index)
+        logger.info('scraping page: %d' % index)
         next_url = (base_page_url % index) + query_string
         page_restaurant_list = parse_list_page(next_url)
+        restaurant_list += page_restaurant_list
         index += 1
 
         time.sleep(1)
@@ -67,7 +69,7 @@ def parse_restaurant_page(restaurant_url: str):
     logger.debug('scraping: %s' % restaurant_url)
     dom = pq(restaurant_url)
     title = dom.find('h1.entry-title').text()
-    logger.debug('title: %s' % title)
+    logger.info('restaurant: %s' % title)
 
     metadata_dom = pq(dom.find('div.post_meta'))
     category = get_category(metadata_dom)  # ジャンル取得
@@ -76,6 +78,7 @@ def parse_restaurant_page(restaurant_url: str):
     table_data = get_table_data(pq(dom.find('table#address')))
 
     table_data.update({
+        '店名': title,
         'ジャンル': category,
         '更新日': update_date,
         '開店日': open_date,
@@ -94,10 +97,23 @@ def get_table_data(table_dom: pq):
     table_data = {}
     for row in table_dom.find('tr'):
         row_dom = pq(row)
-        row_data = [pq(col).text() for col in row_dom.find('td')]
+        row_data = []
+        for col in row_dom.find('td'):
+            col_dom = pq(col)
+            inner_link = col_dom.find('a')
+            if inner_link and 'tel:' not in inner_link.attr('href'):
+                row_data.append(inner_link.attr('href'))
+            else:
+                row_data.append(pq(col).text())
         if len(row_data) != 2:
             logger.debug('wrong num on table row: ' + str(row_dom))
             continue
+        if row_data[0] == '住所':
+            postal_code_match = re.search(r'〒\d{3}-\d{4}', row_data[1])
+            if postal_code_match:
+                postal_code = postal_code_match.group()
+                table_data['郵便番号'] = postal_code
+                row_data[1] = row_data[1].replace(postal_code, '')
         table_data[row_data[0]] = row_data[1]
     return table_data
 
@@ -150,3 +166,4 @@ def get_update_date(attr_dom: pq):
 
 if __name__ == '__main__':
     restaurant_list = parse_service()
+    write_to_csv(restaurant_list)

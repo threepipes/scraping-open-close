@@ -11,5 +11,5 @@ def write_to_csv(restaurant_list: list):
         f.write(','.join(column_list) + '\n')
 
         for restaurant in restaurant_list:
-            row = [restaurant[col] for col in column_list]
-            f.write(','.join(row))
+            row = [restaurant.get(col, '') for col in column_list]
+            f.write(','.join(row).replace('\n', ' ') + '\n')
