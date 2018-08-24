@@ -21,7 +21,7 @@ def parse_service():
     """
     query_string = urlencode({'s': '【開店】'})
     base_page_url = list_url + 'page/%d/?'
-    index = 325
+    index = 1
 
     with open('column_list.csv') as f:
         column_list = [row.strip() for row in f]
