@@ -21,7 +21,7 @@ def parse_service():
     """
     query_string = urlencode({'s': '【開店】'})
     base_page_url = list_url + 'page/%d/?'
-    index = 1
+    index = 325
 
     with open('column_list.csv') as f:
         column_list = [row.strip() for row in f]
@@ -42,7 +42,7 @@ def parse_service():
 
             for restaurant in page_restaurant_list:
                 row = [restaurant.get(col, '') for col in column_list]
-                f.write(','.join(row).replace('\n', ' ') + '\n')
+                f.write(','.join(row).replace('\n', ' / ') + '\n')
                 f.flush()
 
 
@@ -108,7 +108,7 @@ def get_table_data(table_dom: pq):
             col_dom = pq(col)
             inner_link = col_dom.find('a')
             # お店URLの場合だけ、hrefから取得するので場合分け
-            if inner_link and 'tel:' not in inner_link.attr('href'):
+            if inner_link and len(inner_link) == 1 and 'tel:' not in inner_link.attr('href'):
                 row_data.append(inner_link.attr('href'))
             else:
                 row_data.append(pq(col).text())
