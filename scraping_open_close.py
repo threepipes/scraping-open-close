@@ -1,6 +1,7 @@
 from pyquery import PyQuery as pq
 from logging import getLogger, DEBUG, INFO, StreamHandler
 from urllib.parse import urlencode
+import sys
 import time
 import re
 
@@ -13,7 +14,7 @@ logger.setLevel(INFO)
 list_url = 'http://kaiten-heiten.com/category/restaurant/'
 
 
-def parse_service():
+def parse_service(begin_index=1):
     """
     各一覧ページ(1ページ目, 2ページ目, ...)ごとにparse_list_pageでデータを取得し
     ページが完了する度にcsvへの追記を行う
@@ -21,13 +22,19 @@ def parse_service():
     """
     query_string = urlencode({'s': '【開店】'})
     base_page_url = list_url + 'page/%d/?'
-    index = 1
+    index = begin_index
 
     with open('column_list.csv') as f:
         column_list = [row.strip() for row in f]
 
-    with open('attack_list.csv', 'w') as f:
-        f.write(','.join(column_list) + '\n')
+    if index == 1:
+        open_mode = 'w'
+    else:
+        open_mode = 'a'
+
+    with open('attack_list.csv', open_mode) as f:
+        if open_mode == 'w':
+            f.write(','.join(column_list) + '\n')
 
         while True:
             logger.info('scraping page: %d' % index)
@@ -41,7 +48,7 @@ def parse_service():
                 break
 
             for restaurant in page_restaurant_list:
-                row = [restaurant.get(col, '') for col in column_list]
+                row = [restaurant.get(col, '').replace(',', '、') for col in column_list]
                 f.write(','.join(row).replace('\n', ' / ') + '\n')
                 f.flush()
 
@@ -175,4 +182,9 @@ def get_update_date(attr_dom: pq):
 
 
 if __name__ == '__main__':
-    parse_service()
+    args = sys.argv
+    if len(args) == 1:
+        parse_service()
+    else:
+        logger.info('start from: ' + args[1])
+        parse_service(int(args[1]))
