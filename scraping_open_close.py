@@ -14,7 +14,7 @@ logger.setLevel(INFO)
 list_url = 'http://kaiten-heiten.com/category/restaurant/'
 
 
-def parse_service(begin_index=1):
+def parse_service(begin_index=1, end_index=-1):
     """
     各一覧ページ(1ページ目, 2ページ目, ...)ごとにparse_list_pageでデータを取得し
     ページが完了する度にcsvへの追記を行う
@@ -23,6 +23,8 @@ def parse_service(begin_index=1):
     query_string = urlencode({'s': '【開店】'})
     base_page_url = list_url + 'page/%d/?'
     index = begin_index
+    if end_index < begin_index:
+        end_index = 100000000000
 
     with open('column_list.csv') as f:
         column_list = [row.strip() for row in f]
@@ -43,14 +45,14 @@ def parse_service(begin_index=1):
             index += 1
             time.sleep(1)
 
-            # parse_list_pageがレストランを返さない = 終端に達したら抜ける
-            if len(page_restaurant_list) == 0:
-                break
-
             for restaurant in page_restaurant_list:
                 row = [restaurant.get(col, '').replace(',', '、') for col in column_list]
                 f.write(','.join(row).replace('\n', ' / ') + '\n')
                 f.flush()
+
+            # parse_list_pageがレストランを返さない = 終端に達したら抜ける
+            if len(page_restaurant_list) == 0 or index > begin_index:
+                break
 
 
 def parse_list_page(list_page_url: str):
@@ -183,8 +185,11 @@ def get_update_date(attr_dom: pq):
 
 if __name__ == '__main__':
     args = sys.argv
-    if len(args) == 1:
-        parse_service()
-    else:
-        logger.info('start from: ' + args[1])
-        parse_service(int(args[1]))
+    begin_index = 1
+    end_index = -1
+    if len(args) >= 2:
+        begin_index = int(args[1])
+    if len(args) >= 3:
+        end_index = int(args[2])
+    logger.info(f'page: from {begin_index} to {end_index}')
+    parse_service(begin_index, end_index)
