@@ -51,7 +51,7 @@ def parse_service(begin_index=1, end_index=-1):
                 f.flush()
 
             # parse_list_pageがレストランを返さない = 終端に達したら抜ける
-            if len(page_restaurant_list) == 0 or index > begin_index:
+            if len(page_restaurant_list) == 0 or index > end_index:
                 break
 
 
