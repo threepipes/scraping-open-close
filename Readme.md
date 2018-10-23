@@ -52,3 +52,19 @@ pip install -r requirements.txt
 ```commandline
 python scraping_open_close.py
 ```
+
+また、開始ページ/終了ページを指定して動作させることもできる
+
+- 開始ページのみ指定
+
+```commandline
+python scraping_open_close.py 1
+```
+
+- 開始ページと終了ページを指定(1ページ目から200ページ目まで)
+
+```commandline
+python scraping_open_close.py 1 200
+```
+
+基本的には、前回の最終更新店舗の載っているページを開店閉店から見つけて、( http://kaiten-heiten.com/category/restaurant/?s=【開店】 )そのページを終了ページとする。
