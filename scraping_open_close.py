@@ -1,30 +1,49 @@
 from pyquery import PyQuery as pq
 from logging import getLogger, DEBUG, INFO, StreamHandler
 from urllib.parse import urlencode
+from tinydb import TinyDB, Query
+import datetime
 import sys
 import time
 import re
+import json
+import os
 
 # ログ出力用: 今回程度の用途ならprintでもよい
 logger = getLogger(__file__)
 logger.addHandler(StreamHandler())
-logger.setLevel(INFO)
+logger.setLevel(DEBUG)
 
 # 飲食店の一覧
 list_url = 'http://kaiten-heiten.com/category/restaurant/'
+Restaurant = Query()
+output_dir = './output/'
 
 
-def parse_service(begin_index=1, end_index=-1):
+def update_db(db: TinyDB, key: str, value):
+    old = db.search(Restaurant.key == key)
+    if old:
+        db.update(value, Restaurant.key == key)
+    else:
+        db.insert({'key': key, 'value': value})
+
+
+def parse_service(begin_index=1, end_index=-1, query='【閉店】'):
     """
     各一覧ページ(1ページ目, 2ページ目, ...)ごとにparse_list_pageでデータを取得し
     ページが完了する度にcsvへの追記を行う
     :return: お店データのリスト
     """
-    query_string = urlencode({'s': '【開店】'})
+    db = TinyDB('history.json')
+    last = db.search(Restaurant.key == query)
+    logger.debug('previous last: ' + json.dumps(last))
+    query_string = urlencode({'s': query})
     base_page_url = list_url + 'page/%d/?'
     index = begin_index
     if end_index < begin_index:
         end_index = 100000000000
+        if last:
+            last = last[0].get('value', {}).get('URL', '')
 
     with open('column_list.csv') as f:
         column_list = [row.strip() for row in f]
@@ -34,24 +53,35 @@ def parse_service(begin_index=1, end_index=-1):
     else:
         open_mode = 'a'
 
-    with open('attack_list.csv', open_mode) as f:
+    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M')
+    filename = output_dir + f'attack_list_{timestamp}.csv'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    with open(filename, open_mode) as f:
         if open_mode == 'w':
             f.write(','.join(column_list) + '\n')
 
         while True:
             logger.info('scraping page: %d' % index)
             next_url = (base_page_url % index) + query_string
-            page_restaurant_list = parse_list_page(next_url)
+            has_restaurant = False
+
+            for restaurant in parse_list_page(next_url):
+                has_restaurant = True
+                row = [restaurant.get(col, '').replace(',', '、') for col in column_list]
+                if restaurant['URL'] == last:
+                    has_restaurant = False
+                    break
+                f.write(','.join(row).replace('\n', ' / ') + '\n')
+                if index == begin_index:
+                    update_db(db, query, restaurant)
+            f.flush()
+
             index += 1
             time.sleep(1)
 
-            for restaurant in page_restaurant_list:
-                row = [restaurant.get(col, '').replace(',', '、') for col in column_list]
-                f.write(','.join(row).replace('\n', ' / ') + '\n')
-                f.flush()
-
             # parse_list_pageがレストランを返さない = 終端に達したら抜ける
-            if len(page_restaurant_list) == 0 or index > end_index:
+            if not has_restaurant or index > end_index:
                 break
 
 
@@ -63,16 +93,13 @@ def parse_list_page(list_page_url: str):
     """
     dom = pq(list_page_url)
     main_row = pq(dom.find('div.mainarea'))
-    restaurant_list = []
 
     for link in main_row.find('a.post_links'):
         restaurant_url = pq(link).attr('href')
         restaurant_info = parse_restaurant_page(restaurant_url)
-        restaurant_list.append(restaurant_info)
         logger.debug(restaurant_info)
         time.sleep(1)
-
-    return restaurant_list
+        yield restaurant_info
 
 
 def parse_restaurant_page(restaurant_url: str):
