@@ -15,7 +15,7 @@ logger.addHandler(StreamHandler())
 logger.setLevel(DEBUG)
 
 # 飲食店の一覧
-list_url = 'http://kaiten-heiten.com/category/restaurant/'
+list_url = 'https://kaiten-heiten.com/category/restaurant/'
 Restaurant = Query()
 output_dir = './output/'
 

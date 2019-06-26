@@ -1,5 +1,8 @@
 /venv/
 /.idea/
+/.vscode/
 /__pycache__/
+/output/
 
+history.json
 attack_list.csv
