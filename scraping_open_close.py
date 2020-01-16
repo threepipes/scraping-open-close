@@ -130,6 +130,10 @@ def parse_restaurant_page(restaurant_url: str):
     return table_data
 
 
+def have_restaurant_url(inner_link):
+    return inner_link and len(inner_link) == 1 and inner_link.attr('href') and 'tel:' not in inner_link.attr('href')
+
+
 def get_table_data(table_dom: pq):
     """
     お店の情報表からデータを取得する
@@ -144,7 +148,7 @@ def get_table_data(table_dom: pq):
             col_dom = pq(col)
             inner_link = col_dom.find('a')
             # お店URLの場合だけ、hrefから取得するので場合分け
-            if inner_link and len(inner_link) == 1 and 'tel:' not in inner_link.attr('href'):
+            if have_restaurant_url(inner_link):
                 row_data.append(inner_link.attr('href'))
             else:
                 row_data.append(pq(col).text())
