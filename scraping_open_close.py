@@ -2,12 +2,15 @@ from pyquery import PyQuery as pq
 from logging import getLogger, DEBUG, INFO, StreamHandler
 from urllib.parse import urlencode
 from tinydb import TinyDB, Query
+import traceback
 import datetime
 import sys
 import time
 import re
 import json
 import os
+
+SLEEP_INTERVAL_SEC = 3.0
 
 # ログ出力用: 今回程度の用途ならprintでもよい
 logger = getLogger(__file__)
@@ -26,6 +29,18 @@ def update_db(db: TinyDB, key: str, value):
         db.update(value, Restaurant.key == key)
     else:
         db.insert({'key': key, 'value': value})
+
+
+def pq_with_retry(url: str) -> pq:
+    for _ in range(3):
+        try:
+            return pq(url)
+        except:
+            logger.warning(traceback.format_exc())
+            logger.warning('failed to get. retrying...')
+            time.sleep(30)
+    logger.error('failed to get dom from: ' + url)
+    return None
 
 
 def parse_service(begin_index=1, end_index=-1, query='【閉店】'):
@@ -78,7 +93,7 @@ def parse_service(begin_index=1, end_index=-1, query='【閉店】'):
             f.flush()
 
             index += 1
-            time.sleep(1)
+            time.sleep(SLEEP_INTERVAL_SEC)
 
             # parse_list_pageがレストランを返さない = 終端に達したら抜ける
             if not has_restaurant or index > end_index:
@@ -97,8 +112,10 @@ def parse_list_page(list_page_url: str):
     for link in main_row.find('a.post_links'):
         restaurant_url = pq(link).attr('href')
         restaurant_info = parse_restaurant_page(restaurant_url)
+        if not restaurant_info:
+            continue
         logger.debug(restaurant_info)
-        time.sleep(1)
+        time.sleep(SLEEP_INTERVAL_SEC)
         yield restaurant_info
 
 
@@ -109,7 +126,9 @@ def parse_restaurant_page(restaurant_url: str):
     :return: お店データ
     """
     logger.debug('scraping: %s' % restaurant_url)
-    dom = pq(restaurant_url)
+    dom = pq_with_retry(restaurant_url)
+    if not dom:
+        return
     title = dom.find('h1.entry-title').text()
     logger.info('restaurant: %s' % title)
 
